@@ -69,9 +69,41 @@ order by 1
 -- population vs vaccination (using the new_vaccinations column)
   select dea.continent, dea.location, dea.date, dea.population, new_vaccinations, 
   sum(cast(new_vaccinations as int)) over (Partition by dea.location order by dea.location, dea.date) as
-  CumulativeNewVaccinations --to get the maximum value of this column we need to create a view
+  CumulativeNewVaccinations --to get the maximum value of this column we need to create a view or a CTE
   from sqlCovidProject..CovidDeaths as dea
   join sqlCovidProject..CovidVaccinations as vac
   on dea.location = vac.location and dea.date = vac.date
   where dea.continent is not null
   order by 2,3
+
+-- creating view
+USE sqlCovidProject
+GO
+create view PopulationVsVaccinationView
+as
+select dea.continent, dea.location, dea.date, dea.population, new_vaccinations, 
+  sum(cast(new_vaccinations as int)) over (Partition by dea.location order by dea.location, dea.date) as
+  CumulativeNewVaccinations --to get the maximum value of this column we need to create a view
+  from sqlCovidProject..CovidDeaths as dea
+  join sqlCovidProject..CovidVaccinations as vac
+  on dea.location = vac.location and dea.date = vac.date
+  where dea.continent is not null
+
+select location, date , (CumulativeNewVaccinations / population) * 100 as PopulationVsVaccinationPercent
+from PopulationVsVaccinationView
+group by location, date
+order by 2,3
+
+-- Using CTE 
+With PopulationVsVaccinationCTE as (
+select dea.continent, dea.location, dea.date, dea.population, new_vaccinations, 
+  sum(cast(new_vaccinations as int)) over (Partition by dea.location order by dea.location, dea.date) as
+  CumulativeNewVaccinations --to get the maximum value of this column we need to create a view
+  from sqlCovidProject..CovidDeaths as dea
+  join sqlCovidProject..CovidVaccinations as vac
+  on dea.location = vac.location and dea.date = vac.date
+  where dea.continent is not null
+)
+select * , (CumulativeNewVaccinations / population) * 100 as PopulationVsVaccinationPercent
+from PopulationVsVaccinationCTE
+where new_vaccinations is not null and CumulativeNewVaccinations is not null
